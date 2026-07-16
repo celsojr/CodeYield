@@ -1,8 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Description>Domain primitives: BaseEntity, ValueObject</Description>
+    <Description>Domain primitives: BaseEntity, BaseAggregateRoot, ValueObject, Email, Money, Enumeration</Description>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\CodeYield.Abstractions\CodeYield.Abstractions.csproj" />
+    <ProjectReference Include="..\CodeYield.Common\CodeYield.Common.csproj" />
   </ItemGroup>
 </Project>

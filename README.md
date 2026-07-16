@@ -7,12 +7,13 @@ Reusable Domain-Driven Design building blocks for .NET applications.
 | Package | Description |
 |---|---|
 | **CodeYield.Abstractions** | Core interfaces: `IEntity<TId>`, `IAggregateRoot`, `IDomainEvent`, `IEditableEntity`, `ITenantContext` |
-| **CodeYield.Domain** | Base classes implementing the abstractions: `BaseEntity<TId>`, `BaseAggregateRoot<TId>`, `AuditableEntity<TId>`, `ValueObject`, `ValueObject<T>` |
-| **CodeYield.Persistence** | Repository abstraction (`IRepository<T, TId>`) and `PaginatedResult<T>` |
+| **CodeYield.Domain** | Base classes: `BaseEntity<TId>`, `BaseAggregateRoot<TId>`, `AuditableEntity<TId>`, `ValueObject`, `ValueObject<T>`, `Enumeration<TEnum>` |
+| **CodeYield.Persistence** | Repository abstraction (`IRepository<T, TId>`), `PaginatedResult<T>`, and composable `Specification<T>` |
 | **CodeYield.Results** | Standardized result wrappers: `Result`, `Result<T>` |
 | **CodeYield.Exceptions** | Typed exception hierarchy: `DomainException`, `NotFoundException`, `ValidationException` |
-| **CodeYield.EventBus** | In-process event bus with channel-based pub/sub and HTTP delivery with automatic retry |
-| **CodeYield.Common** | Utility collection: `CyList<T>` with rich iteration metadata via `LoopContext<T>` |
+| **CodeYield.EventBus** | Channel-based in-process event bus with HTTP delivery and automatic retry |
+| **CodeYield.Mediator** | Lightweight CQRS abstractions: commands, queries, domain event handlers, and an in-process dispatcher |
+| **CodeYield.Common** | Utilities: `Guard` clauses, `CyList<T>` with rich iteration metadata |
 
 ## Getting Started
 
@@ -21,7 +22,7 @@ Reference the packages you need in your `.csproj`:
 ```xml
 <ItemGroup>
   <ProjectReference Include="path\to\CodeYield.Domain" />
-  <ProjectReference Include="path\to\CodeYield.Results" />
+  <ProjectReference Include="path\to\CodeYield.Mediator" />
 </ItemGroup>
 ```
 
@@ -35,19 +36,18 @@ using CodeYield.Domain;
 public class Product : BaseAggregateRoot<Guid>
 {
     public string Name { get; private set; } = string.Empty;
-    public decimal Price { get; private set; }
+    public Money Price { get; private set; } = null!;
 
     private Product() { }
 
-    public static Product Create(string name, decimal price)
+    public static Product Create(string name, Money price)
     {
-        var product = new Product
+        return new Product
         {
             Id = Guid.NewGuid(),
             Name = name,
             Price = price
         };
-        return product;
     }
 }
 ```
@@ -57,35 +57,111 @@ public class Product : BaseAggregateRoot<Guid>
 ```csharp
 using CodeYield.Domain;
 
-// Single-component value object
-public class Email : ValueObject<Email>
+// Built-in Email value object
+var email = Email.Create("user@example.com");
+
+// Built-in Money value object
+var price = Money.Create(29.99m, "USD");
+var total = price.Add(Money.Create(5.00m, "USD"));
+
+// Custom multi-component value object
+public class Address : ValueObject
 {
-    public string Value { get; }
-
-    protected override Email EqualityValue => this;
-
-    private Email(string value) => Value = value;
-
-    public static Email Create(string value) => new(value);
-
-    public override bool Equals(object? obj) =>
-        obj is Email other && Value == other.Value;
-
-    public override int GetHashCode() => Value.GetHashCode();
-}
-
-// Multi-component value object
-public class Money : ValueObject
-{
-    public decimal Amount { get; }
-    public string Currency { get; }
+    public string Street { get; }
+    public string City { get; }
 
     protected override IEnumerable<object?> GetEqualityComponents()
     {
-        yield return Amount;
-        yield return Currency;
+        yield return Street;
+        yield return City;
     }
 }
+```
+
+### Smart Enums
+
+```csharp
+using CodeYield.Domain;
+
+public class OrderStatus : Enumeration<OrderStatus>
+{
+    public static readonly OrderStatus Pending = new(1, nameof(Pending));
+    public static readonly OrderStatus Confirmed = new(2, nameof(Confirmed));
+    public static readonly OrderStatus Shipped = new(3, nameof(Shipped));
+
+    protected OrderStatus(int value, string name) : base(value, name) { }
+
+    public bool CanTransitionTo(OrderStatus next) =>
+        (this == Pending && next == Confirmed) ||
+        (this == Confirmed && next == Shipped);
+}
+
+// Lookup by value or name
+var status = OrderStatus.FromValue(1);
+var all = OrderStatus.GetAll();
+```
+
+### Guard Clauses
+
+```csharp
+using CodeYield.Common;
+
+public Product Create(string name, decimal price)
+{
+    Guard.AgainstNullOrEmpty(name, nameof(name));
+    Guard.AgainstNegativeOrZero(price, nameof(price));
+    // ...
+}
+```
+
+### Specifications
+
+```csharp
+using CodeYield.Persistence;
+
+public class ActiveProducts : Specification<Product>
+{
+    public override Expression<Func<Product, bool>> ToExpression() =>
+        product => product.IsActive;
+
+    public static readonly ActiveProducts Instance = new();
+}
+
+// Compose with And/Or/Not
+var spec = new ActiveProducts()
+    .And(new ProductsByCategory("Electronics"))
+    .Not(new DiscontinuedProducts());
+
+var results = await repository.GetAllAsync(spec, page: 1, pageSize: 10);
+```
+
+### CQRS with Mediator
+
+```csharp
+using CodeYield.Mediator;
+
+// Define a command
+public record CreateProductCommand(string Name, Money Price) : ICommand<Guid>;
+
+// Handle it
+public class CreateProductHandler : ICommandHandler<CreateProductCommand, Guid>
+{
+    private readonly IRepository<Product, Guid> _repository;
+
+    public CreateProductHandler(IRepository<Product, Guid> repository) => _repository = repository;
+
+    public async Task<Guid> HandleAsync(CreateProductCommand command, CancellationToken ct)
+    {
+        var product = Product.Create(command.Name, command.Price);
+        await _repository.AddAsync(product, ct);
+        return product.Id;
+    }
+}
+
+// Register and dispatch
+services.AddMediator(typeof(CreateProductHandler).Assembly);
+
+var productId = await _mediator.SendAsync(new CreateProductCommand("Widget", Money.Create(9.99m, "USD")));
 ```
 
 ### Results
@@ -130,7 +206,7 @@ services.Configure<EventBusOptions>(options =>
 await _eventBus.PublishAsync(new OrderCreated(order.Id, order.Total));
 ```
 
-Failed deliveries are retried automatically with exponential backoff (configurable via `MaxRetries` and `RetryDelayMs` on `SubscriberConfig`).
+Failed deliveries are retried with exponential backoff (configurable via `MaxRetries` and `RetryDelayMs`).
 
 ### Rich Iteration
 
