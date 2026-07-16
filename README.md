@@ -2,6 +2,19 @@
 
 Reusable Domain-Driven Design building blocks for .NET applications.
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![.NET 10+](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com)
+
+| Package | NuGet |
+|---|---|
+| CodeYield.Abstractions | [![NuGet](https://img.shields.io/nuget/v/CodeYield.Abstractions.svg)](https://www.nuget.org/packages/CodeYield.Abstractions) |
+| CodeYield.Domain | [![NuGet](https://img.shields.io/nuget/v/CodeYield.Domain.svg)](https://www.nuget.org/packages/CodeYield.Domain) |
+| CodeYield.Persistence | [![NuGet](https://img.shields.io/nuget/v/CodeYield.Persistence.svg)](https://www.nuget.org/packages/CodeYield.Persistence) |
+| CodeYield.Exceptions | [![NuGet](https://img.shields.io/nuget/v/CodeYield.Exceptions.svg)](https://www.nuget.org/packages/CodeYield.Exceptions) |
+| CodeYield.EventBus | [![NuGet](https://img.shields.io/nuget/v/CodeYield.EventBus.svg)](https://www.nuget.org/packages/CodeYield.EventBus) |
+| CodeYield.Mediator | [![NuGet](https://img.shields.io/nuget/v/CodeYield.Mediator.svg)](https://www.nuget.org/packages/CodeYield.Mediator) |
+| CodeYield.Common | [![NuGet](https://img.shields.io/nuget/v/CodeYield.Common.svg)](https://www.nuget.org/packages/CodeYield.Common) |
+
 ## Projects
 
 | Package | Description |
