@@ -5,6 +5,8 @@ namespace CodeYield.Mediator
     /// <summary>
     /// Central dispatcher for commands, queries, and domain events.
     /// Resolves handlers from the DI container and invokes them.
+    /// This is a lightweight interface designed to work alongside CodeYield's CQRS contracts.
+    /// If you already use MediatR, see the README for a coexistence adapter example.
     /// </summary>
     public interface IMediator
     {

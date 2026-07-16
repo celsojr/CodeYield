@@ -11,7 +11,7 @@ Reusable Domain-Driven Design building blocks for .NET applications.
 | **CodeYield.Persistence** | Repository abstraction (`IRepository<T, TId>`), `PaginatedResult<T>`, and composable `Specification<T>` |
 | **CodeYield.Exceptions** | Typed exception hierarchy: `DomainException`, `NotFoundException`, `ValidationException` |
 | **CodeYield.EventBus** | Channel-based in-process event bus with HTTP delivery and automatic retry |
-| **CodeYield.Mediator** | Lightweight CQRS abstractions: commands, queries, results, pipeline behaviors, domain event handlers, and an in-process dispatcher |
+| **CodeYield.Mediator** | Lightweight CQRS contracts: commands, queries, results, pipeline behaviors, domain event handlers, and an in-process dispatcher. Pairs well with [MediatR](https://github.com/jbogard/MediatR) — see [Coexisting with MediatR](#coexisting-with-mediatr) |
 | **CodeYield.Common** | Utilities: `Guard` clauses, `IClock`, `AsyncLazy<T>`, `RetryPolicy`, collection/string/enum extensions, `CyList<T>` |
 
 ## Getting Started
@@ -236,6 +236,111 @@ public class CreateProductValidator : IValidator<CreateProductCommand>
 // Register the validator
 services.AddTransient<IValidator<CreateProductCommand>, CreateProductValidator>();
 ```
+
+### Coexisting with MediatR
+
+[MediatR](https://github.com/jbogard/MediatR) is a mature, battle-tested library with a rich feature set (notifications, streaming, pre/post processors). CodeYield.Mediator is intentionally smaller — it provides just enough for the CQRS contracts used by the rest of this library. **They do not conflict**, and you can use both together.
+
+The typical pattern is:
+
+1. Keep MediatR as your primary dispatcher.
+2. Implement CodeYield's marker interfaces (`ICommand<T>`, `IQuery<T>`) on your request records.
+3. Write an adapter that bridges CodeYield's `IMediator` to MediatR's.
+
+```csharp
+using MediatR;
+using CodeYield.Mediator;
+
+// ---------------------------------------------------------------
+// 1. Your commands carry both marker interfaces
+// ---------------------------------------------------------------
+public record CreateOrderCommand(Guid CustomerId, decimal Total)
+    : ICommand<Guid>, IRequest<Guid>;
+
+public record GetOrderQuery(Guid Id)
+    : IQuery<OrderDto>, IRequest<OrderDto>;
+
+// ---------------------------------------------------------------
+// 2. Handlers target MediatR's contracts (or CodeYield's — your call)
+// ---------------------------------------------------------------
+public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Guid>
+{
+    public async Task<Guid> Handle(CreateOrderCommand cmd, CancellationToken ct)
+    {
+        // …persist the order…
+        return Guid.NewGuid();
+    }
+}
+
+// ---------------------------------------------------------------
+// 3. Thin adapter: CodeYield's IMediator → MediatR's IMediator
+// ---------------------------------------------------------------
+public class MediatRMediatorAdapter : IMediator
+{
+    private readonly MediatR.IMediator _mediatR;
+
+    public MediatRMediatorAdapter(MediatR.IMediator mediatR)
+        => _mediatR = mediatR;
+
+    public Task SendAsync(ICommand command, CancellationToken ct = default)
+        => _mediatR.Send(new CommandEnvelope(command), ct);
+
+    public Task<TResponse> SendAsync<TResponse>(ICommand<TResponse> command, CancellationToken ct = default)
+        => _mediatR.Send(new CommandEnvelope<TResponse>(command), ct);
+
+    public Task<TResponse> SendAsync<TResponse>(IQuery<TResponse> query, CancellationToken ct = default)
+        => _mediatR.Send(new QueryEnvelope<TResponse>(query), ct);
+
+    public Task PublishAsync<TEvent>(TEvent e, CancellationToken ct = default) where TEvent : IDomainEvent
+        => _mediatR.Send(new DomainEventEnvelope<TEvent>(e), ct);
+}
+
+// ---------------------------------------------------------------
+// 4. Envelope + handler wrappers (one per cardinality)
+// ---------------------------------------------------------------
+public record CommandEnvelope(ICommand Command) : IRequest;
+
+public class CommandEnvelopeHandler(ICommandHandler handler)
+    : IRequestHandler<CommandEnvelope>
+{
+    public async Task Handle(CommandEnvelope e, CancellationToken ct)
+        => await handler.HandleAsync(e.Command, ct);
+}
+
+public record CommandEnvelope<T>(ICommand<T> Command) : IRequest<T>;
+
+public class CommandEnvelopeHandler<T>(ICommandHandler<ICommand<T>, T> handler)
+    : IRequestHandler<CommandEnvelope<T>, T>
+{
+    public async Task<T> Handle(CommandEnvelope<T> e, CancellationToken ct)
+        => await handler.HandleAsync(e.Command, ct);
+}
+
+public record QueryEnvelope<T>(IQuery<T> Query) : IRequest<T>;
+
+public class QueryEnvelopeHandler<T>(IQueryHandler<IQuery<T>, T> handler)
+    : IRequestHandler<QueryEnvelope<T>, T>
+{
+    public async Task<T> Handle(QueryEnvelope<T> e, CancellationToken ct)
+        => await handler.HandleAsync(e.Query, ct);
+}
+
+public record DomainEventEnvelope<T>(T Event) : IRequest where T : IDomainEvent;
+
+// ---------------------------------------------------------------
+// 5. Register everything
+// ---------------------------------------------------------------
+services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+
+// CodeYield handlers (optional — only if you also use ICommandHandler / IQueryHandler)
+services.AddMediator(registerBehaviors: false, typeof(CreateOrderHandler).Assembly);
+
+// Wire the adapter
+services.AddSingleton<IMediator>(sp =>
+    new MediatRMediatorAdapter(sp.GetRequiredService<MediatR.IMediator>()));
+```
+
+This gives you access to CodeYield's `Result<T>`, `IValidator<T>`, and pipeline behavior contracts while letting MediatR handle dispatching, notifications, and streaming.
 
 ### Event Bus
 

@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Description>Lightweight CQRS abstractions: commands, queries, results, pipeline behaviors, domain event handlers, and an in-process mediator</Description>
+    <Description>Lightweight CQRS contracts and in-process dispatcher for CodeYield. Pairs well with MediatR — see the README for coexistence examples.</Description>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\CodeYield.Abstractions\CodeYield.Abstractions.csproj" />
