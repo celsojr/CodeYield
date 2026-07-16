@@ -1,4 +1,4 @@
-namespace CodeYield.Results
+namespace CodeYield.Mediator
 {
     /// <summary>
     /// Represents the outcome of an operation that does not return a value.

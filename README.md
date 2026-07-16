@@ -9,10 +9,9 @@ Reusable Domain-Driven Design building blocks for .NET applications.
 | **CodeYield.Abstractions** | Core interfaces: `IEntity<TId>`, `IAggregateRoot`, `IDomainEvent`, `IEditableEntity`, `ITenantContext` |
 | **CodeYield.Domain** | Base classes: `BaseEntity<TId>`, `BaseAggregateRoot<TId>`, `AuditableEntity<TId>`, `ValueObject`, `ValueObject<T>`, `Enumeration<TEnum>` |
 | **CodeYield.Persistence** | Repository abstraction (`IRepository<T, TId>`), `PaginatedResult<T>`, and composable `Specification<T>` |
-| **CodeYield.Results** | Standardized result wrappers: `Result`, `Result<T>` |
 | **CodeYield.Exceptions** | Typed exception hierarchy: `DomainException`, `NotFoundException`, `ValidationException` |
 | **CodeYield.EventBus** | Channel-based in-process event bus with HTTP delivery and automatic retry |
-| **CodeYield.Mediator** | Lightweight CQRS abstractions: commands, queries, domain event handlers, and an in-process dispatcher |
+| **CodeYield.Mediator** | Lightweight CQRS abstractions: commands, queries, results, domain event handlers, and an in-process dispatcher |
 | **CodeYield.Common** | Utilities: `Guard` clauses, `CyList<T>` with rich iteration metadata |
 
 ## Getting Started
@@ -167,7 +166,7 @@ var productId = await _mediator.SendAsync(new CreateProductCommand("Widget", Mon
 ### Results
 
 ```csharp
-using CodeYield.Results;
+using CodeYield.Mediator;
 
 public Result<Order> PlaceOrder(Cart cart)
 {
@@ -180,7 +179,6 @@ public Result<Order> PlaceOrder(Cart cart)
 
 public Result DeleteOrder(Guid id)
 {
-    // ... delete logic
     return Result.Success();
 }
 ```
