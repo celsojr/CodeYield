@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Custom exception types: DomainException, NotFoundException, ValidationException</Description>
+  </PropertyGroup>
+</Project>

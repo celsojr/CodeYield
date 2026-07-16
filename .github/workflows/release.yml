@@ -1,0 +1,64 @@
+name: Publish NuGet
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      # Uncomment when test projects are added
+      # - name: Run unit smoke tests (non-blocking)
+      #   continue-on-error: true
+      #   run: dotnet test -c Release --no-build --verbosity minimal
+
+      - name: Pack
+        run: >
+          dotnet pack src/**/CodeYield.*.csproj
+          -c Release
+          -o ./artifacts
+          --no-build
+
+      - name: Publish to NuGet.org
+        if: github.ref_type == 'tag'
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          dotnet nuget push ./artifacts/*.nupkg \
+            -k $NUGET_API_KEY \
+            -s https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+      - name: Publish to GitHub Packages
+        if: github.ref_type == 'tag'
+        env:
+          GH_PACKAGES_PAT: ${{ secrets.GH_PACKAGES_PAT }}
+        run: |
+          dotnet nuget add source \
+            --username celsojr \
+            --password $GH_PACKAGES_PAT \
+            --store-password-in-clear-text \
+            --name github \
+            "https://nuget.pkg.github.com/celsojr/index.json"
+
+          dotnet nuget push ./artifacts/*.nupkg \
+            -k $GH_PACKAGES_PAT \
+            -s github \
+            --skip-duplicate

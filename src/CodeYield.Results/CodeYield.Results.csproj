@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Standardised result types: Result, Result&lt;T&gt;</Description>
+  </PropertyGroup>
+</Project>

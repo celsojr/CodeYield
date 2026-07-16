@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="src/CodeYield.Abstractions/CodeYield.Abstractions.csproj" />
+  <Project Path="src/CodeYield.Domain/CodeYield.Domain.csproj" />
+  <Project Path="src/CodeYield.Persistence/CodeYield.Persistence.csproj" />
+  <Project Path="src/CodeYield.Results/CodeYield.Results.csproj" />
+  <Project Path="src/CodeYield.Exceptions/CodeYield.Exceptions.csproj" />
+  <Project Path="src/CodeYield.EventBus/CodeYield.EventBus.csproj" />
+  <Project Path="src/CodeYield.Common/CodeYield.Common.csproj" />
+</Solution>

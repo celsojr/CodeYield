@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Domain primitives: BaseEntity, ValueObject</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CodeYield.Abstractions\CodeYield.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

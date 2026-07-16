@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Utilities classes, methods and types</Description>
+  </PropertyGroup>
+</Project>
