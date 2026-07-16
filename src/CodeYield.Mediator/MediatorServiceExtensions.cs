@@ -4,15 +4,31 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace CodeYield.Mediator
 {
     /// <summary>
-    /// Extension methods for registering the mediator and its handlers in the DI container.
+    /// Extension methods for registering the mediator, handlers, and pipeline behaviors
+    /// in the DI container.
     /// </summary>
     public static class MediatorServiceExtensions
     {
         /// <summary>
-        /// Registers <see cref="IMediator"/> as a singleton and scans
-        /// <paramref name="assemblies"/> for command, query, and domain event handlers.
+        /// Registers <see cref="IMediator"/> and scans <paramref name="assemblies"/> for handlers.
         /// </summary>
+        /// <param name="services">The service collection.</param>
+        /// <param name="assemblies">Assemblies to scan for handler implementations.</param>
+        /// <returns>The service collection for chaining.</returns>
         public static IServiceCollection AddMediator(this IServiceCollection services, params System.Reflection.Assembly[] assemblies)
+        {
+            return services.AddMediator(true, assemblies);
+        }
+
+        /// <summary>
+        /// Registers <see cref="IMediator"/> and scans <paramref name="assemblies"/> for handlers.
+        /// When <paramref name="registerBehaviors"/> is true, the default pipeline behaviors
+        /// (logging, performance, validation) are also registered.
+        /// </summary>
+        public static IServiceCollection AddMediator(
+            this IServiceCollection services,
+            bool registerBehaviors,
+            params System.Reflection.Assembly[] assemblies)
         {
             services.TryAddSingleton<IMediator, Mediator>();
 
@@ -21,13 +37,61 @@ namespace CodeYield.Mediator
                 services.AddHandlers(assemblies);
             }
 
+            if (registerBehaviors)
+            {
+                services.AddDefaultBehaviors();
+            }
+
             return services;
         }
 
         /// <summary>
-        /// Scans the specified assemblies and registers all <see cref="ICommandHandler{TCommand}"/>,
-        /// <see cref="ICommandHandler{TCommand, TResponse}"/>, <see cref="IQueryHandler{TQuery, TResponse}"/>,
-        /// and <see cref="IDomainEventHandler{TEvent}"/> implementations.
+        /// Registers all three default pipeline behaviors:
+        /// <see cref="LoggingBehavior{TRequest, TResponse}"/>,
+        /// <see cref="PerformanceBehavior{TRequest, TResponse}"/>,
+        /// and <see cref="ValidationBehavior{TRequest, TResponse}"/>.
+        /// </summary>
+        public static IServiceCollection AddDefaultBehaviors(this IServiceCollection services)
+        {
+            services.AddLoggingBehavior();
+            services.AddPerformanceBehavior();
+            services.AddValidationBehavior();
+            return services;
+        }
+
+        /// <summary>Registers <see cref="LoggingBehavior{TRequest, TResponse}"/>.</summary>
+        public static IServiceCollection AddLoggingBehavior(this IServiceCollection services)
+        {
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+            return services;
+        }
+
+        /// <summary>Registers <see cref="PerformanceBehavior{TRequest, TResponse}"/> with the default 500ms threshold.</summary>
+        public static IServiceCollection AddPerformanceBehavior(this IServiceCollection services)
+        {
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(PerformanceBehavior<,>));
+            return services;
+        }
+
+        /// <summary>Registers <see cref="PerformanceBehavior{TRequest, TResponse}"/> with a custom threshold.</summary>
+        public static IServiceCollection AddPerformanceBehavior(this IServiceCollection services, long thresholdMs)
+        {
+            services.AddTransient(typeof(IPipelineBehavior<,>),
+                sp => ActivatorUtilities.CreateInstance<PerformanceBehavior<object, object>>(sp, thresholdMs));
+            return services;
+        }
+
+        /// <summary>Registers <see cref="ValidationBehavior{TRequest, TResponse}"/>.</summary>
+        public static IServiceCollection AddValidationBehavior(this IServiceCollection services)
+        {
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+            return services;
+        }
+
+        /// <summary>
+        /// Scans the specified assemblies and registers all handler implementations:
+        /// <see cref="ICommandHandler{TCommand}"/>, <see cref="ICommandHandler{TCommand, TResponse}"/>,
+        /// <see cref="IQueryHandler{TQuery, TResponse}"/>, and <see cref="IDomainEventHandler{TEvent}"/>.
         /// </summary>
         public static IServiceCollection AddHandlers(this IServiceCollection services, params System.Reflection.Assembly[] assemblies)
         {

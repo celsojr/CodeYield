@@ -11,7 +11,7 @@ Reusable Domain-Driven Design building blocks for .NET applications.
 | **CodeYield.Persistence** | Repository abstraction (`IRepository<T, TId>`), `PaginatedResult<T>`, and composable `Specification<T>` |
 | **CodeYield.Exceptions** | Typed exception hierarchy: `DomainException`, `NotFoundException`, `ValidationException` |
 | **CodeYield.EventBus** | Channel-based in-process event bus with HTTP delivery and automatic retry |
-| **CodeYield.Mediator** | Lightweight CQRS abstractions: commands, queries, results, domain event handlers, and an in-process dispatcher |
+| **CodeYield.Mediator** | Lightweight CQRS abstractions: commands, queries, results, pipeline behaviors, domain event handlers, and an in-process dispatcher |
 | **CodeYield.Common** | Utilities: `Guard` clauses, `CyList<T>` with rich iteration metadata |
 
 ## Getting Started
@@ -181,6 +181,60 @@ public Result DeleteOrder(Guid id)
 {
     return Result.Success();
 }
+```
+
+### Pipeline Behaviors
+
+```csharp
+using CodeYield.Mediator;
+
+// Auto-register all default behaviors (logging, performance, validation)
+services.AddMediator(typeof(CreateProductHandler).Assembly);
+
+// Or register behaviors individually
+services.AddMediator(registerBehaviors: false, typeof(CreateProductHandler).Assembly);
+services.AddLoggingBehavior();
+services.AddPerformanceBehavior(thresholdMs: 300);
+services.AddValidationBehavior();
+
+// Custom behavior
+public class AuthorizationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+{
+    public async Task<TResponse> HandleAsync(TRequest request, CancellationToken ct, Func<Task<TResponse>> next)
+    {
+        // Check authorization...
+        return await next();
+    }
+}
+
+services.AddTransient(typeof(IPipelineBehavior<,>), typeof(AuthorizationBehavior<,>));
+```
+
+### Validation
+
+```csharp
+using CodeYield.Mediator;
+
+public class CreateProductValidator : IValidator<CreateProductCommand>
+{
+    public ValueTask<ValidationResult> ValidateAsync(CreateProductCommand command, CancellationToken ct = default)
+    {
+        var errors = new List<string>();
+
+        if (string.IsNullOrEmpty(command.Name))
+            errors.Add("Name is required.");
+
+        if (command.Price.Amount <= 0)
+            errors.Add("Price must be greater than zero.");
+
+        return ValueTask.FromResult(errors.Count == 0
+            ? ValidationResult.Success()
+            : ValidationResult.Failure(errors.ToArray()));
+    }
+}
+
+// Register the validator
+services.AddTransient<IValidator<CreateProductCommand>, CreateProductValidator>();
 ```
 
 ### Event Bus
