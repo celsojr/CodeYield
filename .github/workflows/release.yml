@@ -33,11 +33,11 @@ jobs:
       #   run: dotnet test -c Release --no-build --verbosity minimal
 
       - name: Pack
-        run: >
-          dotnet pack src/**/CodeYield.*.csproj
-          -c Release
-          -o ./artifacts
-          --no-build
+        run: |
+          for proj in src/**/CodeYield.*.csproj; do
+            echo "Packing $proj"
+            dotnet pack "$proj" -c Release -o ./artifacts --no-build
+          done
 
       - name: NuGet login (OIDC → temp API key)
         if: github.ref_type == 'tag'
