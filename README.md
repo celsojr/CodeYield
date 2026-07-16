@@ -12,7 +12,7 @@ Reusable Domain-Driven Design building blocks for .NET applications.
 | **CodeYield.Exceptions** | Typed exception hierarchy: `DomainException`, `NotFoundException`, `ValidationException` |
 | **CodeYield.EventBus** | Channel-based in-process event bus with HTTP delivery and automatic retry |
 | **CodeYield.Mediator** | Lightweight CQRS abstractions: commands, queries, results, pipeline behaviors, domain event handlers, and an in-process dispatcher |
-| **CodeYield.Common** | Utilities: `Guard` clauses, `CyList<T>` with rich iteration metadata |
+| **CodeYield.Common** | Utilities: `Guard` clauses, `IClock`, `AsyncLazy<T>`, `RetryPolicy`, collection/string/enum extensions, `CyList<T>` |
 
 ## Getting Started
 
@@ -260,6 +260,96 @@ await _eventBus.PublishAsync(new OrderCreated(order.Id, order.Total));
 
 Failed deliveries are retried with exponential backoff (configurable via `MaxRetries` and `RetryDelayMs`).
 
+### IClock
+
+```csharp
+using CodeYield.Common.Clock;
+
+// Production: register the real clock
+services.AddSingleton<IClock, SystemClock>();
+
+// Usage in entities/services
+public class Order(IClock clock)
+{
+    public DateTimeOffset CreatedAt { get; } = clock.UtcNow;
+}
+
+// Testing: freeze time
+var clock = new FakeClock(new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero));
+```
+
+### AsyncLazy
+
+```csharp
+using CodeYield.Common;
+
+var config = new AsyncLazy<AppConfig>(async () =>
+{
+    return await ConfigService.LoadAsync();
+});
+
+// First access triggers the factory; subsequent accesses reuse the result
+var cfg = await config.GetValueAsync();
+```
+
+### Retry
+
+```csharp
+using CodeYield.Common;
+
+var result = await RetryPolicy.ExecuteAsync(
+    async () => await httpClient.GetAsync("https://api.example.com/data"),
+    maxRetries: 3,
+    baseDelay: TimeSpan.FromMilliseconds(500));
+```
+
+### Collection Extensions
+
+```csharp
+using CodeYield.Common.Extensions;
+
+var list = new List<int> { 1, 2, 3 };
+
+list.AddIf(someCondition, 4);
+list.AddIfNotNull(maybeItem);
+list.AddRange(new[] { 5, 6, 7 });
+list.RemoveAll(x => x % 2 == 0);   // removes evens
+
+list.Shuffle();
+var index = list.IndexOf(x => x == 3);
+
+list.ForEach(x => Console.WriteLine(x));
+```
+
+### String Masking
+
+```csharp
+using CodeYield.Common.Extensions;
+
+"john@example.com".MaskEmail();      // "j***@example.com"
+"4111111111111111".MaskCreditCard(); // "4111-****-****-1111"
+"555-867-5309".MaskPhone();          // "******5309"
+"ABCDEFGH".MaskMiddle(2, 5);        // "AB***FGH"
+```
+
+### Enum Extensions
+
+```csharp
+using CodeYield.Common.Extensions;
+using System.ComponentModel;
+
+public enum Priority
+{
+    [Description("Low priority")]
+    Low,
+    [Description("High priority")]
+    High
+}
+
+Priority.High.GetDescription(); // "High priority"
+var all = EnumExtensions.GetValues<Priority>();
+```
+
 ### Rich Iteration
 
 ```csharp
@@ -267,16 +357,16 @@ using CodeYield.Common.Collections;
 using CodeYield.Common.Extensions;
 
 var items = new CyList<string> { "Apple", "Banana", "Orange" };
+Console.WriteLine(items); // ["Apple", "Banana", "Orange"]
+
+// Works with any IEnumerable — prints nicely too
+var numbers = new List<int> { 1, 2, 3 };
+Console.WriteLine(numbers.AsLoop()); // [1, 2, 3]
+
+// Rich iteration metadata
 foreach (var loop in items.GetLoopContext())
 {
     Console.WriteLine($"{loop.Index}: {loop.Item} (First: {loop.IsFirst}, Last: {loop.IsLast})");
-}
-
-// Works with any IEnumerable
-var numbers = new List<int> { 1, 2, 3 };
-foreach (var loop in numbers.AsLoop())
-{
-    Console.WriteLine($"{loop.Step}: {loop.Item}");
 }
 ```
 

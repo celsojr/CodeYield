@@ -6,6 +6,8 @@ namespace CodeYield.Common.Collections
     /// <example>
     /// <code>
     /// var items = new CyList&lt;string&gt; { "Apple", "Banana", "Orange" };
+    /// Console.WriteLine(items); // ["Apple", "Banana", "Orange"]
+    ///
     /// foreach (var loop in items.GetLoopContext())
     /// {
     ///     Console.WriteLine($"{loop.Index}: {loop.Item} (First: {loop.IsFirst}, Last: {loop.IsLast})");
@@ -28,14 +30,15 @@ namespace CodeYield.Common.Collections
         /// Iterates over the list, yielding a <see cref="LoopContext{T}"/> for each element
         /// that provides index, position, and navigation metadata.
         /// </summary>
-        public IEnumerable<LoopContext<T>> GetLoopContext()
+        public LoopContextCollection<T> GetLoopContext()
         {
             int count = this.Count;
             int index = 0;
+            var contexts = new List<LoopContext<T>>(count);
 
             foreach (var item in this)
             {
-                yield return new LoopContext<T>(
+                contexts.Add(new LoopContext<T>(
                     item,
                     this,
                     index,
@@ -45,9 +48,14 @@ namespace CodeYield.Common.Collections
                     index % 2 != 0,
                     count,
                     count - index - 1
-                );
+                ));
                 index++;
             }
+
+            return new LoopContextCollection<T>(contexts);
         }
+
+        /// <summary>Returns the items as a bracket-delimited, comma-separated list.</summary>
+        public override string ToString() => $"[{string.Join(", ", this)}]";
     }
 }
