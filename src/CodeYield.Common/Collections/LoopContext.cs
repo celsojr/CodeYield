@@ -52,10 +52,10 @@ namespace CodeYield.Common.Collections
         public T? Last => Count > 0 ? _source[Count - 1] : default;
 
         /// <summary>Gets the next element in the collection, or <c>default</c> if this is the last.</summary>
-        public T? Next => Index < Count - 1 ? _source[Index + 1] : default;
+        public T? Next => Index < Count - 1 ? _source[Index + 1] : default(T?)!;
 
         /// <summary>Gets the previous element in the collection, or <c>default</c> if this is the first.</summary>
-        public T? Prev => Index > 0 ? _source[Index - 1] : default;
+        public T? Prev => Index > 0 ? _source[Index - 1] : default(T?)!;
 
         internal LoopContext(T item, IList<T> source, int index, bool isFirst, bool isLast,
                             bool isEven, bool isOdd, int count, int left)

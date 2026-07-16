@@ -1,3 +1,4 @@
+using System.Reflection;
 using CodeYield.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,6 +12,9 @@ namespace CodeYield.Mediator
     public class Mediator : IMediator
     {
         private readonly IServiceProvider _serviceProvider;
+
+        private static readonly MethodInfo BuildPipelineMethod =
+            typeof(Mediator).GetMethod(nameof(BuildPipeline), BindingFlags.NonPublic | BindingFlags.Instance)!;
 
         /// <summary>Initializes a new instance of <see cref="Mediator"/>.</summary>
         public Mediator(IServiceProvider serviceProvider)
@@ -34,10 +38,9 @@ namespace CodeYield.Mediator
             var handlerType = typeof(ICommandHandler<,>).MakeGenericType(requestType, typeof(TResponse));
             dynamic handler = _serviceProvider.GetRequiredService(handlerType);
 
-            var pipeline = BuildPipeline<ICommand<TResponse>, TResponse>(
-                command,
-                () => handler.HandleAsync((dynamic)command, ct),
-                ct);
+            Func<Task<TResponse>> handlerFunc = () => handler.HandleAsync((dynamic)command, ct);
+            var method = BuildPipelineMethod.MakeGenericMethod(requestType, typeof(TResponse));
+            var pipeline = (Func<Task<TResponse>>)method.Invoke(this, new object[] { command, handlerFunc, ct })!;
 
             return await pipeline();
         }
@@ -49,10 +52,9 @@ namespace CodeYield.Mediator
             var handlerType = typeof(IQueryHandler<,>).MakeGenericType(requestType, typeof(TResponse));
             dynamic handler = _serviceProvider.GetRequiredService(handlerType);
 
-            var pipeline = BuildPipeline<IQuery<TResponse>, TResponse>(
-                query,
-                () => handler.HandleAsync((dynamic)query, ct),
-                ct);
+            Func<Task<TResponse>> handlerFunc = () => handler.HandleAsync((dynamic)query, ct);
+            var method = BuildPipelineMethod.MakeGenericMethod(requestType, typeof(TResponse));
+            var pipeline = (Func<Task<TResponse>>)method.Invoke(this, new object[] { query, handlerFunc, ct })!;
 
             return await pipeline();
         }

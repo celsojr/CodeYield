@@ -27,19 +27,37 @@ namespace CodeYield.Mediator
                 return await next();
 
             var validateMethod = validatorType.GetMethod(nameof(IValidator<TRequest>.ValidateAsync))!;
-            var task = (Task<ValidationResult>)validateMethod.Invoke(validator, new object?[] { request, ct })!;
-            var result = await task;
+            var resultTask = (ValueTask<ValidationResult>)validateMethod.Invoke(validator, new object?[] { request, ct })!;
+            var result = await resultTask;
 
             if (result.IsValid)
                 return await next();
 
-            // Build a Result<TResponse>.Failure via reflection
-            var failureMethod = typeof(Result<>)
-                .MakeGenericType(typeof(TResponse))
-                .GetMethods()
-                .First(m => m.Name == "Failure" && m.GetParameters().Length == 1);
+            // Build a Result<TResponse>.Failure via reflection.
+            // When TResponse is already Result<T>, extract T so we get Result<T>.Failure, not Result<Result<T>>.Failure.
+            var errorParam = string.Join("; ", result.Errors);
+            var resultGenericType = typeof(Result<>);
 
-            return (TResponse)failureMethod.Invoke(null, new object[] { string.Join("; ", result.Errors) })!;
+            if (typeof(TResponse).IsGenericType
+                && typeof(TResponse).GetGenericTypeDefinition() == resultGenericType)
+            {
+                var innerType = typeof(TResponse).GetGenericArguments()[0];
+                var failureMethod = resultGenericType
+                    .MakeGenericType(innerType)
+                    .GetMethods()
+                    .First(m => m.Name == "Failure" && m.GetParameters().Length == 1);
+
+                return (TResponse)failureMethod.Invoke(null, new object[] { errorParam })!;
+            }
+
+            {
+                var failureMethod = resultGenericType
+                    .MakeGenericType(typeof(TResponse))
+                    .GetMethods()
+                    .First(m => m.Name == "Failure" && m.GetParameters().Length == 1);
+
+                return (TResponse)failureMethod.Invoke(null, new object[] { errorParam })!;
+            };
         }
     }
 }

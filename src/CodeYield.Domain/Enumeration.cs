@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace CodeYield.Domain
 {
     /// <summary>
@@ -40,19 +42,33 @@ namespace CodeYield.Domain
             _instances[value] = (TEnum)this;
         }
 
+        /// <summary>Ensures the derived enumeration type's static members are initialized.</summary>
+        private static void EnsureInitialized() =>
+            RuntimeHelpers.RunClassConstructor(typeof(TEnum).TypeHandle);
+
         /// <summary>Looks up an enumeration member by its integer value.</summary>
-        public static TEnum FromValue(int value) =>
-            _instances.TryGetValue(value, out var instance)
+        public static TEnum FromValue(int value)
+        {
+            EnsureInitialized();
+            return _instances.TryGetValue(value, out var instance)
                 ? instance
                 : throw new InvalidOperationException($"Value '{value}' is not a valid {typeof(TEnum).Name}.");
+        }
 
         /// <summary>Looks up an enumeration member by its name (case-insensitive).</summary>
-        public static TEnum FromName(string name) =>
-            _instances.Values.FirstOrDefault(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+        public static TEnum FromName(string name)
+        {
+            EnsureInitialized();
+            return _instances.Values.FirstOrDefault(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
             ?? throw new InvalidOperationException($"Name '{name}' is not a valid {typeof(TEnum).Name}.");
+        }
 
         /// <summary>Returns all defined enumeration members.</summary>
-        public static IReadOnlyCollection<TEnum> GetAll() => _instances.Values.ToList().AsReadOnly();
+        public static IReadOnlyCollection<TEnum> GetAll()
+        {
+            EnsureInitialized();
+            return _instances.Values.ToList().AsReadOnly();
+        }
 
         /// <inheritdoc />
         public override bool Equals(object? obj) =>

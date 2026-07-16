@@ -6,4 +6,5 @@
   <Project Path="src/CodeYield.EventBus/CodeYield.EventBus.csproj" />
   <Project Path="src/CodeYield.Common/CodeYield.Common.csproj" />
   <Project Path="src/CodeYield.Mediator/CodeYield.Mediator.csproj" />
+  <Project Path="tests/CodeYield.Tests/CodeYield.Tests.csproj" />
 </Solution>
